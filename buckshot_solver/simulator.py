@@ -1,5 +1,11 @@
+from collections import defaultdict
+from multiprocessing.pool import Pool
+from typing import Generator
+
+from buckshot_solver.dealerlogic import DealerLogic
 from buckshot_solver.elements import Item, Shell
 from buckshot_solver.round import Round
+from buckshot_solver.simulation import Simulation
 
 
 class Simulator:
@@ -13,7 +19,7 @@ class Simulator:
         player_turn: bool = True,
         nb_simulations: int = 10_000,
     ):
-        self.freezed_round = Round(
+        self.frozen_round = Round(
             lives=lives,
             blanks=blanks,
             max_life=max_life,
@@ -22,13 +28,38 @@ class Simulator:
             items_player=items_player,
             items_dealer=items_dealer,
             player_turn=player_turn,
-            state=[Shell.unknown] * (lives + blanks),
+            shells=[Shell.unknown] * (lives + blanks),
         )
         self.nb_simulations = nb_simulations
 
-    def start(self) -> None:
+    def _score_round(self, cr: Round) -> float:
+        return cr.player_life * 0.75 + (cr.max_life - cr.dealer_life)
+
+    def _simulate_round(self, action: int, cr: Round) -> tuple[int, float]:
+        Simulation(cr).start(action)
+        return action, self._score_round(cr)
+
+    def _generator_simulations(self) -> Generator[tuple[int, Round], None, None]:
         for _ in range(self.nb_simulations):
-            current_round = self.freezed_round.from_round(self.freezed_round)
-            # each index corresponds to the corresponding item
-            # index 7: shoot opposite, index 8: shoot self
-            nb_wins = [0] * 8
+            for action in self.frozen_round.possible_actions:
+                cr = self.frozen_round.from_round(self.frozen_round)
+                yield (action, cr)
+
+    def start(self) -> defaultdict[int, float]:
+        frozen_score = self._score_round(self.frozen_round)
+        scores: defaultdict[int, float] = defaultdict(float)
+        pool = Pool()
+        res = pool.starmap_async(self._simulate_round, self._generator_simulations())
+
+        # scores[action] += self._score_round(cr) - frozen_score
+        pool.close()
+        pool.join()
+        for action, score in res.get():
+            scores[action] += score - frozen_score
+        return scores
+
+    def dealer_act(self) -> None:
+        dealer = DealerLogic()
+        actions = dealer.choose_actions(self.frozen_round)
+        for action in actions:
+            self.frozen_round.action(action)
