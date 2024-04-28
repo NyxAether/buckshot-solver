@@ -10,31 +10,32 @@ class DealerLogicException(Exception):
 
 class DealerLogic:
 
-    def _choose_shoot(self, c_round: Round) -> Action:
-        shells = c_round.shells
+    def _choose_shoot(self, c_round: Round) -> tuple[float, Action]:
+        shells = c_round.dealer_shells
         if shells[-1] == Shell.live:
-            return Action.opponent
+            return 1.0, Action.opponent
         if shells[-1] == Shell.blank:
-            return Action.myself
+            return 1.0, Action.myself
         # shell is unknown
-        remain_lives = c_round.lives - c_round.shells.count(Shell.live)
-        remain_blanks = c_round.blanks - c_round.shells.count(Shell.blank)
+        remain_lives = c_round.lives - c_round.dealer_shells.count(Shell.live)
+        remain_blanks = c_round.blanks - c_round.dealer_shells.count(Shell.blank)
         if remain_lives > remain_blanks:
-            return Action.opponent
+            return 1.0, Action.opponent
         if remain_blanks > remain_lives:
-            return Action.myself
+            return 1.0, Action.myself
         # if remain_blanks == remain_lives
-        return random.choice([Action.opponent, Action.myself])
+        return 0.5, random.choice([Action.opponent, Action.myself])
 
-    def choose_actions(self, c_round: Round) -> list[int]:
-        shells = c_round.shells
-        if_shoot = self._choose_shoot(c_round)
+    def choose_actions(self, c_round: Round) -> tuple[float, list[int]]:
+        proba = 1.0
+        shells = c_round.dealer_shells
+        p_if_shoot, if_shoot = self._choose_shoot(c_round)
         if c_round.player_turn:
             raise DealerLogicException(
                 "Dealer was asked to choose an action but it was not its turn"
             )
         if len(c_round.items_dealer) == 0:
-            return [if_shoot]
+            return proba * p_if_shoot, [if_shoot]
 
         items = c_round.items_dealer.copy()
         if Item.adrenaline in c_round.items_dealer:
@@ -73,12 +74,14 @@ class DealerLogic:
                 items_set.remove(Item.saw)
 
         if len(items_set) == 0:
-            return [if_shoot]
+            return proba * p_if_shoot, [if_shoot]
         next_item: Item = random.choice(list(items_set))
+        proba = 1.0 / len(items_set)
         actions_list: list[int] = []
         if next_item not in c_round.items_dealer:
             actions_list.append(Item.adrenaline)
         actions_list.append(next_item)
         if next_item == Item.saw:
             actions_list.append(if_shoot)
-        return actions_list
+            proba = proba * p_if_shoot
+        return proba, actions_list

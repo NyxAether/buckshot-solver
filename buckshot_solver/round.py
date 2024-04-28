@@ -41,9 +41,12 @@ class Round(BaseModel):
     dealer_shells: list[Shell] = []
 
     def model_post_init(self, __context: Any) -> None:
-        self.shells = [Shell.unknown] * (self.lives + self.blanks)
-        self.player_shells = [Shell.unknown] * (self.lives + self.blanks)
-        self.dealer_shells = [Shell.unknown] * (self.lives + self.blanks)
+        if self.shells == []:
+            self.shells = [Shell.unknown] * (self.lives + self.blanks)
+        if self.player_shells == []:
+            self.player_shells = [Shell.unknown] * (self.lives + self.blanks)
+        if self.dealer_shells == []:
+            self.dealer_shells = [Shell.unknown] * (self.lives + self.blanks)
 
     @classmethod
     def from_round(cls, el: "Round") -> "Round":
@@ -51,7 +54,9 @@ class Round(BaseModel):
         values["items_player"] = el.items_player.copy()
         values["items_dealer"] = el.items_dealer.copy()
         if el.shells is not None:
-            values["state"] = el.shells.copy()
+            values["shells"] = el.shells.copy()
+            values["player_shells"] = el.player_shells.copy()
+            values["dealer_shells"] = el.dealer_shells.copy()
         return Round(**values)
 
     @property
@@ -79,12 +84,16 @@ class Round(BaseModel):
             return True
         return False
 
-    def _random_shell(self) -> Shell:
+    def _random_shell(self) -> tuple[float, Shell]:
         lives_unk = self.lives - self.shells.count(Shell.live)
         blanks_unk = self.blanks - self.shells.count(Shell.blank)
-        return random.choices(
+        proba = lives_unk / (lives_unk + blanks_unk)
+        choice = random.choices(
             [Shell.live, Shell.blank], weights=[lives_unk, blanks_unk]
         )[0]
+        if choice == Shell.blank:
+            proba = 1 - proba
+        return proba, choice
 
     def _remove_played_item(self, item: Item) -> None:
         if self.player_turn:
@@ -98,54 +107,58 @@ class Round(BaseModel):
         del self.dealer_shells[-1]
 
     @check_item(item=Item.handcuff)
-    def ac_handcuff(self) -> bool:
+    def ac_handcuff(self) -> float:
         if self.player_turn and not self.dealer_handcuff:
             self.dealer_handcuff = True
             self._remove_played_item(Item.handcuff)
-            return True
+            return 1.0
         if not self.player_turn and not self.player_handcuff:
             self.player_handcuff = True
             self._remove_played_item(Item.handcuff)
-            return True
-        return False
+            return 1.0
+        return 0.0
 
     @check_item(item=Item.magnifier)
-    def ac_magnifier(self) -> bool:
+    def ac_magnifier(self) -> float:
+        proba = 1.0
         if self.shells[-1] == Shell.unknown:
-            self.shells[-1] = self._random_shell()
+            proba, self.shells[-1] = self._random_shell()
         if self.player_turn:
             self.player_shells[-1] = self.shells[-1]
         else:
             self.dealer_shells[-1] = self.shells[-1]
         self._remove_played_item(Item.magnifier)
-        return True
+        return proba
 
     @check_item(item=Item.saw)
-    def ac_saw(self) -> bool:
+    def ac_saw(self) -> float:
         if self.saw_bonus == 1:
             self.saw_bonus = 2
             self._remove_played_item(Item.saw)
-            return True
-        return False
+            return 1.0
+        return 0.0
 
     @check_item(item=Item.phone)
-    def ac_phone(self) -> bool:
+    def ac_phone(self) -> float:
         if len(self.shells) > 1:
             id_shell = random.randint(0, len(self.shells) - 1)
+            proba = 1 / len(self.shells) - 1
             if self.shells[id_shell] == Shell.unknown:
-                self.shells[id_shell] = self._random_shell()
+                p, self.shells[id_shell] = self._random_shell()
+                proba *= p
             if self.player_turn:
                 self.player_shells[id_shell] = self.shells[id_shell]
             else:
                 self.dealer_shells[id_shell] = self.shells[id_shell]
             self._remove_played_item(Item.phone)
-            return True
-        return False
+            return proba
+        return 0.0
 
     @check_item(item=Item.beer)
-    def ac_beer(self) -> bool:
+    def ac_beer(self) -> float:
+        proba = 1.0
         if self.shells[-1] == Shell.unknown:
-            self.shells[-1] = self._random_shell()
+            proba, self.shells[-1] = self._random_shell()
 
         if self.shells[-1] == Shell.live:
             self.lives -= 1
@@ -153,19 +166,19 @@ class Round(BaseModel):
             self.blanks -= 1
         self._remove_last_shell()
         self._remove_played_item(Item.beer)
-        return True
+        return proba
 
     @check_item(item=Item.cigarette)
-    def ac_cigarette(self) -> bool:
+    def ac_cigarette(self) -> float:
         if self.player_turn and self.player_life < self.max_life:
             self.player_life += 1
         if not self.player_turn and self.dealer_life < self.max_life:
             self.dealer_life += 1
         self._remove_played_item(Item.cigarette)
-        return True
+        return 1.0
 
     @check_item(item=Item.medecine)
-    def ac_medecine(self) -> bool:
+    def ac_medecine(self) -> float:
         heal = random.randint(0, 1)
         if heal == 0:
             if self.player_turn:
@@ -178,30 +191,33 @@ class Round(BaseModel):
             if not self.player_turn and self.dealer_life < self.max_life:
                 self.dealer_life += 1
         self._remove_played_item(Item.medecine)
-        return True
+        return 0.5
 
     @check_item(item=Item.adrenaline)
-    def ac_adrenaline(self) -> bool:
+    def ac_adrenaline(self) -> float:
         if self._check_adrenaline():
+            proba = 1.0
             if self.player_turn:
-                item = random.choice(
-                    [i for i in self.items_dealer if i != Item.adrenaline]
-                )
+                items_no_ad = {i for i in self.items_dealer if i != Item.adrenaline}
+                item = random.choice(list(items_no_ad))
+                proba = proba * 1 / len(items_no_ad)
                 self.items_player.append(item)
                 self.items_dealer.remove(item)
             else:
-                item = random.choice(
-                    [i for i in self.items_player if i != Item.adrenaline]
-                )
+                items_no_ad = {i for i in self.items_player if i != Item.adrenaline}
+                item = random.choice(list(items_no_ad))
+                proba = proba * 1 / len(items_no_ad)
                 self.items_dealer.append(item)
                 self.items_player.remove(item)
             self._remove_played_item(Item.adrenaline)
-            return True
-        return False
+            return proba
+        return 0.0
 
-    def ac_shoot_opposite(self) -> bool:
+    def ac_shoot_opposite(self) -> float:
+        proba = 1.0
         if self.shells[-1] == Shell.unknown:
-            self.shells[-1] = self._random_shell()
+            p, self.shells[-1] = self._random_shell()
+            proba *= p
 
         if self.shells[-1] == Shell.live:
             if self.player_turn:
@@ -214,11 +230,13 @@ class Round(BaseModel):
         self.saw_bonus = 1
         self.change_turn()
         self._remove_last_shell()
-        return True
+        return proba
 
-    def ac_shoot_myself(self) -> bool:
+    def ac_shoot_myself(self) -> float:
+        proba = 1.0
         if self.shells[-1] == Shell.unknown:
-            self.shells[-1] = self._random_shell()
+            p, self.shells[-1] = self._random_shell()
+            proba *= p
 
         if self.shells[-1] == Shell.live:
             if self.player_turn:
@@ -231,7 +249,7 @@ class Round(BaseModel):
             self.blanks -= 1
         self.saw_bonus = 1
         self._remove_last_shell()
-        return True
+        return proba
 
     def change_turn(self) -> None:
         if self.player_turn:
@@ -252,7 +270,7 @@ class Round(BaseModel):
             return {i.value for i in self.items_player}.union(possible_shots)
         return {i.value for i in self.items_dealer}.union(possible_shots)
 
-    def action(self, action: int) -> bool:
+    def action(self, action: int) -> float:
         match action:
             case 0:
                 return self.ac_handcuff()
@@ -274,4 +292,4 @@ class Round(BaseModel):
                 return self.ac_shoot_opposite()
             case 9:
                 return self.ac_shoot_myself()
-        return False
+        return 0.0

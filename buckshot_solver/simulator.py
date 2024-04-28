@@ -28,16 +28,19 @@ class Simulator:
             items_player=items_player,
             items_dealer=items_dealer,
             player_turn=player_turn,
-            shells=[Shell.unknown] * (lives + blanks),
         )
         self.nb_simulations = nb_simulations
 
     def _score_round(self, cr: Round) -> float:
+        if cr.player_life == 0:
+            return 0
+        if cr.dealer_life == 0:
+            return 20
         return cr.player_life * 0.75 + (cr.max_life - cr.dealer_life)
 
-    def _simulate_round(self, action: int, cr: Round) -> tuple[int, float]:
-        Simulation(cr).start(action)
-        return action, self._score_round(cr)
+    def _simulate_round(self, action: int, cr: Round) -> tuple[int, float, float]:
+        proba = Simulation(cr).start(action)
+        return action, proba, self._score_round(cr)
 
     def _generator_simulations(self) -> Generator[tuple[int, Round], None, None]:
         for _ in range(self.nb_simulations):
@@ -48,18 +51,22 @@ class Simulator:
     def start(self) -> defaultdict[int, float]:
         frozen_score = self._score_round(self.frozen_round)
         scores: defaultdict[int, float] = defaultdict(float)
+        probas: defaultdict[int, float] = defaultdict(float)
         pool = Pool()
-        res = pool.starmap_async(self._simulate_round, self._generator_simulations())
-
-        # scores[action] += self._score_round(cr) - frozen_score
+        res = pool.starmap_async(
+            self._simulate_round, self._generator_simulations(), chunksize=100
+        )
         pool.close()
         pool.join()
-        for action, score in res.get():
-            scores[action] += score - frozen_score
+        for action, proba, score in res.get():
+            scores[action] += (score - frozen_score) * proba
+            probas[action] += proba
+        for action in scores:
+            scores[action] /= probas[action]
         return scores
 
     def dealer_act(self) -> None:
         dealer = DealerLogic()
-        actions = dealer.choose_actions(self.frozen_round)
+        _, actions = dealer.choose_actions(self.frozen_round)
         for action in actions:
             self.frozen_round.action(action)

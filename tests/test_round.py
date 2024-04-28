@@ -31,6 +31,7 @@ def new_round() -> Round:
         ],
     )
 
+
 @fixture
 def adrenaline_round() -> Round:
     return Round(
@@ -46,6 +47,7 @@ def adrenaline_round() -> Round:
             Item.adrenaline,
         ],
     )
+
 
 @fixture
 def adrenaline_round2() -> Round:
@@ -161,12 +163,14 @@ def test_ac_medecine_2(new_round: Round) -> None:
     assert new_round.dealer_life == 5 or new_round.dealer_life == 4
     assert Item.medecine not in new_round.items_dealer
 
+
 def test_ac_adrenaline(adrenaline_round: Round) -> None:
     adrenaline_round.player_turn = False
     adrenaline_round.ac_adrenaline()
     assert Item.saw not in adrenaline_round.items_player
     assert Item.adrenaline not in adrenaline_round.items_dealer
     assert Item.saw in adrenaline_round.items_dealer
+
 
 def test_ac_adrenaline2(adrenaline_round2: Round) -> None:
     adrenaline_round2.ac_adrenaline()
@@ -265,3 +269,10 @@ def test_ac_shoot_myself_saw(new_round: Round) -> None:
     assert new_round.dealer_life == 5
     assert not new_round.player_turn
     assert new_round.saw_bonus == 1
+
+def test_from_round(new_round: Round) -> None:
+    new_round.shells[0] = Shell.live
+    new_round.player_shells[0] = Shell.live
+    builded_round = Round.from_round(new_round)
+    assert builded_round.shells[0] == Shell.live
+    assert builded_round.player_shells[0] == Shell.live
