@@ -30,12 +30,12 @@ class Round(BaseModel):
     player_life: int
     dealer_life: int
     max_life: int
-    items_player: list[Item]
-    items_dealer: list[Item]
     player_turn: bool = True
     player_handcuff: bool = False
     dealer_handcuff: bool = False
     saw_bonus: int = 1
+    items_player: list[Item] = []
+    items_dealer: list[Item] = []
     shells: list[Shell] = []
     player_shells: list[Shell] = []
     dealer_shells: list[Shell] = []
@@ -84,17 +84,6 @@ class Round(BaseModel):
             return True
         return False
 
-    def _random_shell(self) -> tuple[float, Shell]:
-        lives_unk = self.lives - self.shells.count(Shell.live)
-        blanks_unk = self.blanks - self.shells.count(Shell.blank)
-        proba = lives_unk / (lives_unk + blanks_unk)
-        choice = random.choices(
-            [Shell.live, Shell.blank], weights=[lives_unk, blanks_unk]
-        )[0]
-        if choice == Shell.blank:
-            proba = 1 - proba
-        return proba, choice
-
     def _remove_played_item(self, item: Item) -> None:
         if self.player_turn:
             self.items_player.remove(item)
@@ -121,8 +110,6 @@ class Round(BaseModel):
     @check_item(item=Item.magnifier)
     def ac_magnifier(self) -> float:
         proba = 1.0
-        if self.shells[-1] == Shell.unknown:
-            proba, self.shells[-1] = self._random_shell()
         if self.player_turn:
             self.player_shells[-1] = self.shells[-1]
         else:
@@ -142,10 +129,7 @@ class Round(BaseModel):
     def ac_phone(self) -> float:
         if len(self.shells) > 1:
             id_shell = random.randint(0, len(self.shells) - 1)
-            proba = 1 / len(self.shells) - 1
-            if self.shells[id_shell] == Shell.unknown:
-                p, self.shells[id_shell] = self._random_shell()
-                proba *= p
+            proba = 1 / (len(self.shells) - 1)
             if self.player_turn:
                 self.player_shells[id_shell] = self.shells[id_shell]
             else:
@@ -157,9 +141,6 @@ class Round(BaseModel):
     @check_item(item=Item.beer)
     def ac_beer(self) -> float:
         proba = 1.0
-        if self.shells[-1] == Shell.unknown:
-            proba, self.shells[-1] = self._random_shell()
-
         if self.shells[-1] == Shell.live:
             self.lives -= 1
         elif self.shells[-1] == Shell.blank:
@@ -200,7 +181,6 @@ class Round(BaseModel):
             if self.player_turn:
                 items_no_ad = {i for i in self.items_dealer if i != Item.adrenaline}
                 item = random.choice(list(items_no_ad))
-                proba = proba * 1 / len(items_no_ad)
                 self.items_player.append(item)
                 self.items_dealer.remove(item)
             else:
@@ -214,11 +194,6 @@ class Round(BaseModel):
         return 0.0
 
     def ac_shoot_opposite(self) -> float:
-        proba = 1.0
-        if self.shells[-1] == Shell.unknown:
-            p, self.shells[-1] = self._random_shell()
-            proba *= p
-
         if self.shells[-1] == Shell.live:
             if self.player_turn:
                 self.dealer_life -= 1 * self.saw_bonus
@@ -230,14 +205,9 @@ class Round(BaseModel):
         self.saw_bonus = 1
         self.change_turn()
         self._remove_last_shell()
-        return proba
+        return 1.0
 
     def ac_shoot_myself(self) -> float:
-        proba = 1.0
-        if self.shells[-1] == Shell.unknown:
-            p, self.shells[-1] = self._random_shell()
-            proba *= p
-
         if self.shells[-1] == Shell.live:
             if self.player_turn:
                 self.player_life -= 1 * self.saw_bonus
@@ -249,7 +219,7 @@ class Round(BaseModel):
             self.blanks -= 1
         self.saw_bonus = 1
         self._remove_last_shell()
-        return proba
+        return 1.0
 
     def change_turn(self) -> None:
         if self.player_turn:
@@ -293,3 +263,16 @@ class Round(BaseModel):
             case 9:
                 return self.ac_shoot_myself()
         return 0.0
+
+    def initialize_shells(self) -> None:
+        remaining_lives = self.lives - self.player_shells.count(Shell.live)
+        remaining_blanks = self.blanks - self.player_shells.count(Shell.blank)
+        for i, shell in enumerate(self.shells):
+            if shell == Shell.unknown:
+                self.shells[i] = random.choices(
+                    [Shell.live, Shell.blank], [remaining_lives, remaining_blanks]
+                )[0]
+                if self.shells[i] == Shell.live:
+                    remaining_lives -= 1
+                else:
+                    remaining_blanks -= 1

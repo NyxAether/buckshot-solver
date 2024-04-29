@@ -37,6 +37,7 @@ def one_blank() -> Round:
         player_turn=True,
     )
 
+
 @fixture
 def three_bullet() -> Round:
     return Round(
@@ -59,6 +60,7 @@ def test_choose_actions_one_live(logic: PlayerLogic, one_live: Round) -> None:
 def test_choose_actions_one_blank(logic: PlayerLogic, one_blank: Round) -> None:
     _, actions = logic.choose_actions(one_blank)
     assert actions == [Action.myself.value]
+
 
 def test_choose_actions_three_bullet(logic: PlayerLogic, three_bullet: Round) -> None:
     three_bullet.shells[-3] = Shell.live

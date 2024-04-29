@@ -47,6 +47,7 @@ def sim4() -> Simulator:
         items_dealer=[],
     )
 
+
 @fixture
 def sim5() -> Simulator:
     return Simulator(
@@ -54,7 +55,7 @@ def sim5() -> Simulator:
         blanks=2,
         max_life=2,
         items_player=[Item.saw],
-        items_dealer=[],
+        items_dealer=[Item.handcuff],
     )
 
 
@@ -70,7 +71,11 @@ def test_simulator_standard2(sim2: Simulator) -> None:
 
 def test_simulator_standard3(sim3: Simulator) -> None:
     res = sim3.start()
-    assert abs(res[Action.opponent] - res[Action.myself]) < 1
+    assert (
+        abs(res[Action.opponent] - res[Action.myself])
+        / (res[Action.opponent] + res[Action.myself])
+        < 0.2
+    )
 
 
 def test_simulator_magnifier(sim3: Simulator) -> None:
@@ -133,6 +138,7 @@ def test_simulator_2_beers(sim4: Simulator) -> None:
     res = sim4.start()
     action_max = max(res, key=res.__getitem__)
     assert action_max == Action.myself
+
 
 def test_simulator_weird_shoot_self(sim5: Simulator) -> None:
     sim5.frozen_round.shells[-4] = Shell.live

@@ -66,6 +66,19 @@ def adrenaline_round2() -> Round:
     )
 
 
+@fixture
+def eight_round() -> Round:
+    return Round(
+        lives=4,
+        blanks=4,
+        max_life=5,
+        player_life=4,
+        dealer_life=5,
+        items_player=[],
+        items_dealer=[],
+    )
+
+
 def test_from_round(new_round: Round) -> None:
     c_round = Round.from_round(new_round)
     assert c_round.lives == 3
@@ -113,8 +126,9 @@ def test_ac_handcuff_2(new_round: Round) -> None:
 
 
 def test_ac_magnifier(new_round: Round) -> None:
+    new_round.initialize_shells()
     new_round.ac_magnifier()
-    assert new_round.shells[-1] != Shell.unknown
+    assert new_round.player_shells[-1] != Shell.unknown
     assert Item.magnifier not in new_round.items_player
 
 
@@ -126,14 +140,15 @@ def test_ac_saw(new_round: Round) -> None:
 
 
 def test_ac_phone(new_round: Round) -> None:
+    new_round.initialize_shells()
     new_round.ac_phone()
-    assert new_round.shells.count(Shell.unknown) == 4
+    assert new_round.player_shells.count(Shell.unknown) == 4
     assert Item.phone not in new_round.items_player
 
 
 def test_ac_beer(new_round: Round) -> None:
+    new_round.initialize_shells()
     new_round.ac_beer()
-    assert new_round.shells.count(Shell.unknown) == 4
     assert new_round.lives + new_round.blanks == 4
     assert Item.beer not in new_round.items_player
 
@@ -270,9 +285,26 @@ def test_ac_shoot_myself_saw(new_round: Round) -> None:
     assert not new_round.player_turn
     assert new_round.saw_bonus == 1
 
-def test_from_round(new_round: Round) -> None:
+
+def test_from_round2(new_round: Round) -> None:
     new_round.shells[0] = Shell.live
     new_round.player_shells[0] = Shell.live
     builded_round = Round.from_round(new_round)
     assert builded_round.shells[0] == Shell.live
     assert builded_round.player_shells[0] == Shell.live
+
+
+def test_initialize_shells(eight_round: Round) -> None:
+    eight_round.initialize_shells()
+    check1 = (
+        eight_round.shells[-1] == Shell.blank and eight_round.shells[-2] == Shell.blank
+    )
+    eight_round.initialize_shells()
+    check2 = (
+        eight_round.shells[-1] == Shell.blank and eight_round.shells[-2] == Shell.blank
+    )
+    eight_round.initialize_shells()
+    check3 = (
+        eight_round.shells[-1] == Shell.blank and eight_round.shells[-2] == Shell.blank
+    )
+    assert not check1 or not check2 or not check3

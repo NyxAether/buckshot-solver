@@ -13,6 +13,7 @@ class SimulationError(Exception):
 class Simulation:
     def __init__(self, current_round: Round):
         self.cr = current_round
+        self.cr.initialize_shells()
         self.dealer = DealerLogic()
         self.player = PlayerLogic()
 

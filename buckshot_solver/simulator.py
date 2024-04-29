@@ -3,7 +3,7 @@ from multiprocessing.pool import Pool
 from typing import Generator
 
 from buckshot_solver.dealerlogic import DealerLogic
-from buckshot_solver.elements import Item, Shell
+from buckshot_solver.elements import Item
 from buckshot_solver.round import Round
 from buckshot_solver.simulation import Simulation
 
@@ -14,10 +14,10 @@ class Simulator:
         lives: int,
         blanks: int,
         max_life: int,
-        items_player: list[Item],
-        items_dealer: list[Item],
+        items_player: list[Item] = [],
+        items_dealer: list[Item] = [],
         player_turn: bool = True,
-        nb_simulations: int = 10_000,
+        nb_simulations: int = 1_000,
     ):
         self.frozen_round = Round(
             lives=lives,
@@ -53,16 +53,14 @@ class Simulator:
         scores: defaultdict[int, float] = defaultdict(float)
         probas: defaultdict[int, float] = defaultdict(float)
         pool = Pool()
-        res = pool.starmap_async(
-            self._simulate_round, self._generator_simulations(), chunksize=100
-        )
+        res = pool.starmap_async(self._simulate_round, self._generator_simulations())
         pool.close()
         pool.join()
         for action, proba, score in res.get():
             scores[action] += (score - frozen_score) * proba
             probas[action] += proba
-        for action in scores:
-            scores[action] /= probas[action]
+        # for action in scores:
+        #     scores[action] /= probas[action]
         return scores
 
     def dealer_act(self) -> None:
