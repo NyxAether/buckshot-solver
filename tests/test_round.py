@@ -296,15 +296,16 @@ def test_from_round2(new_round: Round) -> None:
 
 def test_initialize_shells(eight_round: Round) -> None:
     eight_round.initialize_shells()
+    all((shell == Shell.live for shell in eight_round.shells[0:4]))
     check1 = (
-        eight_round.shells[-1] == Shell.blank and eight_round.shells[-2] == Shell.blank
+        all((shell == Shell.live for shell in eight_round.shells[0:4]))
     )
     eight_round.initialize_shells()
     check2 = (
-        eight_round.shells[-1] == Shell.blank and eight_round.shells[-2] == Shell.blank
+        all((shell == Shell.live for shell in eight_round.shells[0:4]))
     )
     eight_round.initialize_shells()
     check3 = (
-        eight_round.shells[-1] == Shell.blank and eight_round.shells[-2] == Shell.blank
+        all((shell == Shell.live for shell in eight_round.shells[0:4]))
     )
     assert not check1 or not check2 or not check3

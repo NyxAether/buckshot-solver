@@ -50,11 +50,11 @@ class Simulation:
         self.cr.blanks = nb_bullets - self.cr.lives
         self._generate_random_items()
 
-    def start(self, first_action: int | None = None, extended: bool = False) -> float:
-        proba = 1.0
+    def start(self, first_action: int | None = None, extended: bool = False) -> int:
+        action_count = 0
         if first_action is not None:
-            proba = self.cr.action(first_action)
-            if proba == 0.0:
+            action_count += 1
+            if self.cr.action(first_action) == 0.0:
                 raise SimulationError("First action not possible")
         while self.cr.check_health:
             if self.cr.bullets:
@@ -62,13 +62,12 @@ class Simulation:
                     _, actions = self.player.choose_actions(self.cr)
                     # proba *= p_action
                 else:
-                    p_action, actions = self.dealer.choose_actions(self.cr)
-                    proba *= p_action
+                    _, actions = self.dealer.choose_actions(self.cr)
+                action_count += len(actions)
                 for action in actions:
-                    p = self.cr.action(action)
-                    proba *= p
+                    _ = self.cr.action(action)
             elif extended:
                 self._random_next_round()
             else:
                 break
-        return proba
+        return action_count

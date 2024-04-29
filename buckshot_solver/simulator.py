@@ -17,7 +17,7 @@ class Simulator:
         items_player: list[Item] = [],
         items_dealer: list[Item] = [],
         player_turn: bool = True,
-        nb_simulations: int = 1_000,
+        nb_simulations: int = 10_000,
     ):
         self.frozen_round = Round(
             lives=lives,
@@ -33,12 +33,12 @@ class Simulator:
 
     def _score_round(self, cr: Round) -> float:
         if cr.player_life == 0:
-            return 0
+            return -20
         if cr.dealer_life == 0:
             return 20
         return cr.player_life * 0.75 + (cr.max_life - cr.dealer_life)
 
-    def _simulate_round(self, action: int, cr: Round) -> tuple[int, float, float]:
+    def _simulate_round(self, action: int, cr: Round) -> tuple[int, int, float]:
         proba = Simulation(cr).start(action)
         return action, proba, self._score_round(cr)
 
@@ -51,14 +51,13 @@ class Simulator:
     def start(self) -> defaultdict[int, float]:
         frozen_score = self._score_round(self.frozen_round)
         scores: defaultdict[int, float] = defaultdict(float)
-        probas: defaultdict[int, float] = defaultdict(float)
+        probas: defaultdict[int, int] = defaultdict(int)
         pool = Pool()
         res = pool.starmap_async(self._simulate_round, self._generator_simulations())
         pool.close()
         pool.join()
         for action, proba, score in res.get():
-            scores[action] += (score - frozen_score) * proba
-            probas[action] += proba
+            scores[action] += (score - frozen_score) 
         # for action in scores:
         #     scores[action] /= probas[action]
         return scores

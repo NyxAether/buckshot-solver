@@ -58,6 +58,14 @@ def sim5() -> Simulator:
         items_dealer=[Item.handcuff],
     )
 
+@fixture
+def sim6() -> Simulator:
+    return Simulator(
+        lives=2,
+        blanks=1,
+        max_life=2,
+    )
+
 
 def test_simulator_standard1(sim1: Simulator) -> None:
     res = sim1.start()
@@ -131,7 +139,7 @@ def test_simulator_shoot_self(sim4: Simulator) -> None:
     assert action_max == Action.myself
 
 
-def test_simulator_2_beers(sim4: Simulator) -> None:
+def test_simulator_2_blanks(sim4: Simulator) -> None:
     sim4.frozen_round.shells[-3] = Shell.live
     sim4.frozen_round.player_shells[-3] = Shell.live
     sim4.frozen_round.dealer_life = 1
@@ -139,10 +147,21 @@ def test_simulator_2_beers(sim4: Simulator) -> None:
     action_max = max(res, key=res.__getitem__)
     assert action_max == Action.myself
 
+def test_simulator_2_beers(sim6: Simulator) -> None:
+    sim6.frozen_round.shells[-3] = Shell.live
+    sim6.frozen_round.player_shells[-3] = Shell.live
+    sim6.frozen_round.items_player = [Item.beer, Item.beer]
+    sim6.frozen_round.player_life = 1
+    res = sim6.start()
+
+    action_max = max(res, key=res.__getitem__)
+    assert action_max == Action.beer
+
 
 def test_simulator_weird_shoot_self(sim5: Simulator) -> None:
     sim5.frozen_round.shells[-4] = Shell.live
     sim5.frozen_round.player_shells[-4] = Shell.live
+    sim5.frozen_round.dealer_life = 2
     sim5.frozen_round.dealer_handcuff = True
     res = sim5.start()
     action_max = max(res, key=res.__getitem__)
