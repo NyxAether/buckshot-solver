@@ -1,11 +1,13 @@
 import random
 from functools import wraps
-from typing import Any, Callable
+from typing import Any, Callable, Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer, model_validator
 
 from buckshot_solver.elements import Action, Item, Shell
 
+class RoundError(Exception):
+    pass
 
 def check_item(item: Item) -> Callable:
     def wrapper_up(func: Callable) -> Callable:
@@ -17,7 +19,7 @@ def check_item(item: Item) -> Callable:
             else:
                 if item in self.items_dealer:
                     return func(self, *args, **kwargs)
-            return False
+            raise RoundError(f"Item {item.name} not available")
 
         return wrapper
 
@@ -33,12 +35,47 @@ class Round(BaseModel):
     player_turn: bool = True
     player_handcuff: bool = False
     dealer_handcuff: bool = False
+    inverted: bool = False
     saw_bonus: int = 1
     items_player: list[Item] = []
     items_dealer: list[Item] = []
     shells: list[Shell] = []
     player_shells: list[Shell] = []
     dealer_shells: list[Shell] = []
+
+    #  Serializers
+    @field_serializer("items_player")
+    def serialize_items_player(self, items_player: list[Item]) -> list[str]:
+        return [i.name for i in self.items_player]
+
+    @field_serializer("items_dealer")
+    def serialize_items_dealer(self, items_dealer: list[Item]) -> list[str]:
+        return [i.name for i in self.items_dealer]
+
+    @field_serializer("player_shells")
+    def serialize_player_shells(self, player_shells: list[Shell]) -> list[str]:
+        map_dict = {Shell.unknown: "U", Shell.live: "L", Shell.blank: "B"}
+        return [map_dict[s] for s in self.player_shells]
+
+    # End of serializers
+
+    # Validators
+
+    @model_validator(mode="after")
+    def check_health_valid(self) -> Self:
+        if self.player_life < 0 or self.dealer_life < 0:
+            raise ValueError("Health can't be negative")
+        if self.player_life > self.max_life or self.dealer_life > self.max_life:
+            raise ValueError("Health can't be greater than max_life")
+        return self
+
+    @model_validator(mode="after")
+    def check_shells_valid(self) -> Self:
+        if len(self.shells) != self.lives + self.blanks:
+            raise ValueError("Wrong number of shells")
+        return self
+
+    # End of validators
 
     def model_post_init(self, __context: Any) -> None:
         if self.shells == []:
@@ -90,10 +127,42 @@ class Round(BaseModel):
         else:
             self.items_dealer.remove(item)
 
-    def _remove_last_shell(self) -> None:
+    def _remove_last_shell(self) -> Shell:
+        last_shell = self.shells[-1]
+        if self.inverted:
+            if last_shell == Shell.live:
+                last_shell = Shell.blank
+                self.lives -= 1
+                self.blanks += 1
+            elif last_shell == Shell.blank:
+                last_shell = Shell.live
+                self.lives += 1
+                self.blanks -= 1
+            else:
+                ValueError("Trying to remove an unknown shell")
         del self.shells[-1]
         del self.player_shells[-1]
         del self.dealer_shells[-1]
+        self.update_both_knowledge()
+        return last_shell
+
+    def _resolve_shells(self, shells: list[Shell], shell: Shell) -> None:
+        for i, s in enumerate(shells):
+            if s == Shell.unknown:
+                shells[i] = shell
+
+    def _update_knowledge(self, shells: list[Shell]) -> None:
+        # Player
+        remain_lives = self.lives - shells.count(Shell.live)
+        remain_blanks = self.blanks - shells.count(Shell.blank)
+        if remain_lives == 0:
+            self._resolve_shells(shells, Shell.blank)
+        if remain_blanks == 0:
+            self._resolve_shells(shells, Shell.live)
+
+    def update_both_knowledge(self) -> None:
+        self._update_knowledge(self.player_shells)
+        self._update_knowledge(self.dealer_shells)
 
     @check_item(item=Item.handcuff)
     def ac_handcuff(self) -> float:
@@ -114,6 +183,7 @@ class Round(BaseModel):
             self.player_shells[-1] = self.shells[-1]
         else:
             self.dealer_shells[-1] = self.shells[-1]
+        self.update_both_knowledge()
         self._remove_played_item(Item.magnifier)
         return proba
 
@@ -134,6 +204,7 @@ class Round(BaseModel):
                 self.player_shells[id_shell] = self.shells[id_shell]
             else:
                 self.dealer_shells[id_shell] = self.shells[id_shell]
+            self.update_both_knowledge()
             self._remove_played_item(Item.phone)
             return proba
         return 0.0
@@ -141,11 +212,11 @@ class Round(BaseModel):
     @check_item(item=Item.beer)
     def ac_beer(self) -> float:
         proba = 1.0
-        if self.shells[-1] == Shell.live:
+        last_shell = self._remove_last_shell()
+        if last_shell == Shell.live:
             self.lives -= 1
-        elif self.shells[-1] == Shell.blank:
+        elif last_shell == Shell.blank:
             self.blanks -= 1
-        self._remove_last_shell()
         self._remove_played_item(Item.beer)
         return proba
 
@@ -174,6 +245,12 @@ class Round(BaseModel):
         self._remove_played_item(Item.medecine)
         return 0.5
 
+    @check_item(item=Item.inverter)
+    def ac_inverter(self) -> float:
+        self.inverted = not self.inverted
+        self._remove_played_item(Item.inverter)
+        return 1.0
+
     @check_item(item=Item.adrenaline)
     def ac_adrenaline(self) -> float:
         if self._check_adrenaline():
@@ -194,7 +271,8 @@ class Round(BaseModel):
         return 0.0
 
     def ac_shoot_opposite(self) -> float:
-        if self.shells[-1] == Shell.live:
+        last_shell = self._remove_last_shell()
+        if last_shell == Shell.live:
             if self.player_turn:
                 self.dealer_life -= 1 * self.saw_bonus
             else:
@@ -204,11 +282,11 @@ class Round(BaseModel):
             self.blanks -= 1
         self.saw_bonus = 1
         self.change_turn()
-        self._remove_last_shell()
         return 1.0
 
     def ac_shoot_myself(self) -> float:
-        if self.shells[-1] == Shell.live:
+        last_shell = self._remove_last_shell()
+        if last_shell == Shell.live:
             if self.player_turn:
                 self.player_life -= 1 * self.saw_bonus
             else:
@@ -218,7 +296,6 @@ class Round(BaseModel):
         else:
             self.blanks -= 1
         self.saw_bonus = 1
-        self._remove_last_shell()
         return 1.0
 
     def change_turn(self) -> None:
@@ -240,27 +317,29 @@ class Round(BaseModel):
             return {i.value for i in self.items_player}.union(possible_shots)
         return {i.value for i in self.items_dealer}.union(possible_shots)
 
-    def action(self, action: int) -> float:
+    def action(self, action: Action) -> float:
         match action:
-            case 0:
+            case Action.handcuff:
                 return self.ac_handcuff()
-            case 1:
+            case Action.magnifier:
                 return self.ac_magnifier()
-            case 2:
+            case Action.saw:
                 return self.ac_saw()
-            case 3:
+            case Action.phone:
                 return self.ac_phone()
-            case 4:
+            case Action.beer:
                 return self.ac_beer()
-            case 5:
+            case Action.cigarette:
                 return self.ac_cigarette()
-            case 6:
+            case Action.medecine:
                 return self.ac_medecine()
-            case 7:
+            case Action.inverter:
+                return self.ac_inverter()
+            case Action.adrenaline:
                 return self.ac_adrenaline()
-            case 8:
+            case Action.opponent:
                 return self.ac_shoot_opposite()
-            case 9:
+            case Action.myself:
                 return self.ac_shoot_myself()
         return 0.0
 

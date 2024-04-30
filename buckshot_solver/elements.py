@@ -21,6 +21,11 @@ class Item(IntEnum):
     cigarette: int = 5
     medecine: int = 6
     adrenaline: int = 7
+    inverter: int = 8
+
+    @classmethod
+    def from_str(cls, name: str) -> "Item":
+        return getattr(cls, name)
 
 
 class Action(IntEnum):
@@ -32,5 +37,14 @@ class Action(IntEnum):
     cigarette: int = 5
     medecine: int = 6
     adrenaline: int = 7
-    opponent: int = 8
-    myself: int = 9
+    inverter: int = 8
+    opponent: int = 9
+    myself: int = 10
+
+    @classmethod
+    def int_to_str(cls, value: int) -> str:
+        return Action(value).name
+    
+    def __str__(self):
+        return f'{self.name}'
+    

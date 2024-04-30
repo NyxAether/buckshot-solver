@@ -3,7 +3,7 @@ import random
 from buckshot_solver.dealerlogic import DealerLogic
 from buckshot_solver.elements import Item, Shell
 from buckshot_solver.playerlogic import PlayerLogic
-from buckshot_solver.simulator import Round
+from buckshot_solver.round import Round
 
 
 class SimulationError(Exception):

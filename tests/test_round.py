@@ -1,7 +1,8 @@
 from pytest import fixture
+import pytest
 
 from buckshot_solver.elements import Item, Shell
-from buckshot_solver.round import Round
+from buckshot_solver.round import Round, RoundError
 
 
 @fixture
@@ -135,7 +136,6 @@ def test_ac_magnifier(new_round: Round) -> None:
 def test_ac_saw(new_round: Round) -> None:
     new_round.ac_saw()
     assert new_round.saw_bonus == 2
-    assert not new_round.ac_saw()
     assert Item.saw not in new_round.items_player
 
 
@@ -297,15 +297,23 @@ def test_from_round2(new_round: Round) -> None:
 def test_initialize_shells(eight_round: Round) -> None:
     eight_round.initialize_shells()
     all((shell == Shell.live for shell in eight_round.shells[0:4]))
-    check1 = (
-        all((shell == Shell.live for shell in eight_round.shells[0:4]))
-    )
+    check1 = all((shell == Shell.live for shell in eight_round.shells[0:4]))
     eight_round.initialize_shells()
-    check2 = (
-        all((shell == Shell.live for shell in eight_round.shells[0:4]))
-    )
+    check2 = all((shell == Shell.live for shell in eight_round.shells[0:4]))
     eight_round.initialize_shells()
-    check3 = (
-        all((shell == Shell.live for shell in eight_round.shells[0:4]))
-    )
+    check3 = all((shell == Shell.live for shell in eight_round.shells[0:4]))
     assert not check1 or not check2 or not check3
+
+def test_ac_inverter(new_round: Round) -> None:
+    new_round.shells[-1] = Shell.live
+    new_round.items_player.append(Item.inverter)
+    new_round.items_player.append(Item.inverter)
+    new_round.ac_inverter()
+    assert new_round.inverted
+    new_round.ac_inverter()
+    assert not new_round.inverted
+    
+def test_using_object_not_available(new_round: Round) -> None:
+    with pytest.raises(RoundError):
+        new_round.ac_inverter()
+    

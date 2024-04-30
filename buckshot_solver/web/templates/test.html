@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>multi-input</title>
+  <meta charset="utf-8">
+  <!-- <meta name="viewport" content="width=device-width, initial-scale=1"> -->
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+</head>  
+
+<body>
+  
+  <div>
+    <label>Speaker name:</label>
+    <multi-input allow-duplicates>
+      <input list="speakers">
+      <datalist id="speakers">
+        <option value="Banquo"></option>
+        <option value="Bishop Stokesly of London"></option>
+        <option value="Caesar’s Second Watchman"></option>
+        <option value="Celia"></option>
+        <option value="Cleopatra"></option>
+        <option value="Dogberry"></option>
+        <option value="Falstaff"></option>
+        <option value="First Servant"></option>
+        <option value="Hamlet"></option>
+        <option value="Juliet"></option>
+        <option value="Macbeth"></option>
+      </datalist>
+    </multi-input>
+    <button id="get">Get</button>
+  </div>
+
+  <p id="values"></p>
+
+</body>
+
+  <script src="{{url_for('static', filename='multi-input.js')}}"></script>
+  <script src="{{url_for('static', filename='script.js')}}"></script>
+
+
+</html>

@@ -14,18 +14,16 @@ class PlayerLogic:
             raise PlayerLogicException(
                 "Player was asked to choose an action but it was not its turn"
             )
+        cr.update_both_knowledge()
         possible_actions = cr.possible_actions
-        remaining_lives = cr.lives - cr.player_shells.count(Shell.live)
-        remaining_blanks = cr.blanks - cr.player_shells.count(Shell.blank)
+        inverted = cr.inverted
+        next_live = cr.player_shells[-1] == Shell.live
+        next_blank = cr.player_shells[-1] == Shell.blank
         # Next shell is live
-        if cr.player_shells[-1] == Shell.live:
-            possible_actions = possible_actions - {Action.myself}
-        if cr.player_shells[-1] == Shell.unknown and remaining_blanks == 0:
+        if (next_live and not inverted) or (next_blank and inverted):
             possible_actions = possible_actions - {Action.myself}
         # Next shell is blank
-        if cr.player_shells[-1] == Shell.blank:
-            possible_actions = possible_actions - {Action.opponent}
-        if cr.player_shells[-1] == Shell.unknown and remaining_lives == 0:
+        if (next_blank and not inverted) or (next_live and inverted):
             possible_actions = possible_actions - {Action.opponent}
         action: int = random.choice(list(possible_actions))
         proba = 1 / len(possible_actions)

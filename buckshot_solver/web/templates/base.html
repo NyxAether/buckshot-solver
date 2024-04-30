@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sample Form</title>
+    <link rel="stylesheet" href="{{url_for('static', filename='styles.css')}}" />
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+
+
+</head>
+<body>
+    <h2>Sample Form </h2>
+    <form action="/submit" method="POST">
+        <label for="lives">Live shells:</label>
+        <input type="number" id="lives" name="lives" min="0" max="4" value="{{ session['cr']['lives'] }}">
+        <label for="blanks">Blanks shells:</label>
+        <input type="number" id="blanks" name="blanks" min="0" max="4" value="{{ session['cr']['blanks'] }}">
+        <br><br>
+        
+        <label for="player_life">Player life:</label>
+        <input type="number" id="player_life" name="player_life" min="1" max="4" value="{{ session['cr']['player_life'] }}">
+        <label for="dealer_life">Dealer life:</label>
+        <input type="number" id="dealer_life" name="dealer_life" min="1" max="4" value="{{ session['cr']['dealer_life'] }}">
+        <label for="max_life">Max life:</label>
+        <input type="number" id="max_life" name="max_life" min="2" max="4" value="{{ session['cr']['max_life'] }}">
+        <br><br>
+
+        <label for="dealer_handcuff">Dealer handcuff:</label>
+        <input type="checkbox" id="dealer_handcuff" name="dealer_handcuff" {% if session['cr']['dealer_handcuff'] %} checked {% endif %}}>
+        <label for="saw_bonus">Saw used:</label>
+        <input type="checkbox" id="saw_bonus" name="saw_bonus" {% if session['cr']['saw_bonus'] == 2 %} checked {% endif %}}><br>
+
+        <div><label>Shells :</label>
+            {% for i in range(session['cr']['player_shells']|length) %}
+            <select name="shell_{{i}}" id="shell_{{i}}"">
+                <option value="L" {% if session['cr']['player_shells'][i] == 'L' %} selected {% endif %}>L</option>
+                <option value="B" {% if session['cr']['player_shells'][i] == 'B' %} selected {% endif %}>B</option>
+                <option value="U" {% if session['cr']['player_shells'][i] == 'U' %} selected {% endif %}>U</option>
+            </select>
+            {% endfor %}
+        </div>      
+    <div>
+        <label for="items-player">Player items:</label>
+        <multi-input name="items_player" allow-duplicates>
+          {% for item in session['cr']['items_player'] %}
+          <div class="item">
+            {{ item }}
+          </div>
+          {% endfor %}
+          <input list="items-player">
+          <datalist id="items-player">
+            <option value="handcuff"></option>
+            <option value="magnifier"></option>
+            <option value="inverter"></option>
+            <option value="saw"></option>
+            <option value="phone"></option>
+            <option value="beer"></option>
+            <option value="cigarette"></option>
+            <option value="medecine"></option>
+            <option value="adrenaline"></option>
+          </datalist>
+        </multi-input>
+        
+        <label for="items_dealer">Dealer items:</label>
+        <multi-input name="items_dealer" allow-duplicates>
+          {% for item in session['cr']['items_dealer'] %}
+          <div class="item">{{ item }}</div>
+          {% endfor %}
+          <input list="items_dealer">
+          <datalist id="items_dealer">
+            <option value="handcuff"></option>
+            <option value="magnifier"></option>
+            <option value="saw"></option>
+            <option value="inverter"></option>
+            <option value="phone"></option>
+            <option value="beer"></option>
+            <option value="cigarette"></option>
+            <option value="medecine"></option>
+            <option value="adrenaline"></option>
+          </datalist>
+        </multi-input>
+      </div>
+        
+        
+        <input type="submit" value="Submit">
+    </form>
+<div id="scores">
+    {% if session['scores'] %}
+    {% for action, score in session['scores'].items() %}
+    <div class="score{% if session['action_max'] == action %} max-act {% endif %}">
+        {{ action }}: {{ score |round|int}}
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+</body>
+<script src="{{url_for('static', filename='multi-input.js')}}"></script>
+<script src="{{url_for('static', filename='script.js')}}"></script>
+</html>
