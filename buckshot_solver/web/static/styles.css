@@ -39,3 +39,16 @@ body {
   .max-act {
 	font-weight: bold;
   }
+
+  .items {
+	display: flex;
+  }
+
+  .all-bools {
+	display: inline-flex;
+	margin-bottom: 10px;
+  }
+
+  .one-bool {
+	margin: 0 60px 0px 0;
+  }

@@ -44,7 +44,10 @@ class Action(IntEnum):
     @classmethod
     def int_to_str(cls, value: int) -> str:
         return Action(value).name
-    
-    def __str__(self):
-        return f'{self.name}'
-    
+
+    @classmethod
+    def from_item(cls, item: Item) -> "Action":
+        return Action(item.value)
+
+    def __str__(self) -> str:
+        return f"{self.name}"

@@ -34,7 +34,7 @@ class Simulator:
     def _generator_simulations(self) -> Generator[tuple[int, Round], None, None]:
         for _ in range(self.nb_simulations):
             for action in self.frozen_round.possible_actions:
-                cr = self.frozen_round.from_round(self.frozen_round)
+                cr = Round.from_round(self.frozen_round)
                 yield (action, cr)
 
     def start(self) -> defaultdict[int, float]:

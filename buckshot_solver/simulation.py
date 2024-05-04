@@ -1,7 +1,7 @@
 import random
 
 from buckshot_solver.dealerlogic import DealerLogic
-from buckshot_solver.elements import Item, Shell
+from buckshot_solver.elements import Action, Item, Shell
 from buckshot_solver.playerlogic import PlayerLogic
 from buckshot_solver.round import Round
 
@@ -50,12 +50,16 @@ class Simulation:
         self.cr.blanks = nb_bullets - self.cr.lives
         self._generate_random_items()
 
-    def start(self, first_action: int | None = None, extended: bool = False) -> int:
+    def start(
+        self, first_action: Action | int | None = None, extended: bool = False
+    ) -> int:
         action_count = 0
         if first_action is not None:
             action_count += 1
             if self.cr.action(first_action) == 0.0:
-                raise SimulationError("First action not possible")
+                raise SimulationError(
+                    f"First action {Action.int_to_str(first_action)} not possible"
+                )
         while self.cr.check_health:
             if self.cr.bullets:
                 if self.cr.player_turn:

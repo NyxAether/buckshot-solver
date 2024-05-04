@@ -25,16 +25,19 @@ def index() -> str:
 
 @app.route("/submit", methods=["POST"])
 def submit() -> "Response":
+    print(request.form)
     keys = request.form.keys()
     shell_map = {"L": Shell.live, "B": Shell.blank, "U": Shell.unknown}
-
+    print(shell_map["L"])
     lives = int(request.form["lives"])
     blanks = int(request.form["blanks"])
     player_life = int(request.form["player_life"])
     dealer_life = int(request.form["dealer_life"])
     max_life = int(request.form["max_life"])
     dealer_handcuff = "dealer_handcuff" in request.form
-    saw_bonus = 2 if "ac_saw" in request.form else 1
+    inverted = "inverted" in request.form
+    adrenaline = "adrenaline" in request.form
+    saw_bonus = 2 if "saw_bonus" in request.form else 1
     shells = [shell_map[request.form[k]] for k in keys if "shell_" in k]
     if (lives + blanks) < len(shells):
         shells = shells[: (lives + blanks)]
@@ -54,18 +57,18 @@ def submit() -> "Response":
         player_life=player_life,
         dealer_life=dealer_life,
         dealer_handcuff=dealer_handcuff,
+        inverted=inverted,
+        adrenaline=adrenaline,
         saw_bonus=saw_bonus,
         items_player=items_player,
         items_dealer=items_dealer,
         shells=shells.copy(),
         player_shells=shells.copy(),
     )
+
     res = Simulator(cr).start()
     scores = {Action.int_to_str(k): res[k] for k in res}
     session["cr"] = cr.model_dump()
-    print(session["cr"])
-    print(request.form)
     session["scores"] = scores
     session["action_max"] = max(scores, key=scores.__getitem__)
-    print(scores)
     return redirect(url_for("index"))

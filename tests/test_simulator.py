@@ -84,6 +84,18 @@ def sim6() -> Simulator:
         )
     )
 
+@fixture
+def sim_one_bullet() -> Simulator:
+    return Simulator(
+        Round(
+            lives=1,
+            blanks=0,
+            max_life=5,
+            player_life=5,
+            dealer_life=5,
+        )
+    )
+
 
 def test_simulator_standard1(sim1: Simulator) -> None:
     res = sim1.start()
@@ -148,13 +160,13 @@ def test_simulator_saw(sim3: Simulator) -> None:
     action_max = max(res, key=res.__getitem__)
     assert action_max == Action.saw
 
+
 def test_simulator_inverter(sim1: Simulator) -> None:
     sim1.frozen_round.shells[-3] = Shell.live
     sim1.frozen_round.player_shells[-3] = Shell.live
-    sim1.frozen_round.items_player= [Item.inverter]
+    sim1.frozen_round.items_player = [Item.inverter]
     res = sim1.start()
     action_max = max(res, key=res.__getitem__)
-    tr_res = {Action.int_to_str(k):v for k,v in res.items()}
     assert action_max == Action.inverter
 
 
@@ -194,3 +206,65 @@ def test_simulator_weird_shoot_self(sim5: Simulator) -> None:
     res = sim5.start()
     action_max = max(res, key=res.__getitem__)
     assert action_max == Action.myself
+
+
+def test_simulator_complex_1() -> None:
+    cr = Round(
+        lives=3,
+        blanks=3,
+        max_life=2,
+        player_life=2,
+        dealer_life=2,
+        items_player=[
+            Item.cigarette,
+            Item.magnifier,
+            Item.medecine,
+            Item.inverter,
+            Item.saw,
+            Item.saw,
+        ],
+        items_dealer=[
+            Item.cigarette,
+            Item.beer,
+            Item.phone,
+            Item.magnifier,
+            Item.adrenaline,
+            Item.beer,
+            Item.handcuff,
+        ],
+    )
+    res = Simulator(cr).start()
+    action_max = max(res, key=res.__getitem__)
+    assert action_max == Action.saw
+
+
+def test_simulator_complex_2() -> None:
+    cr = Round(
+        lives=3,
+        blanks=4,
+        max_life=4,
+        player_life=4,
+        dealer_life=4,
+        items_player=[
+            Item.phone,
+            Item.magnifier,
+            Item.adrenaline,
+            Item.adrenaline,
+            Item.medecine,
+        ],
+        items_dealer=[
+            Item.inverter,
+            Item.cigarette,
+            Item.magnifier,
+            Item.beer,
+            Item.magnifier,
+        ],
+    )
+    res = Simulator(cr).start()
+    action_max = max(res, key=res.__getitem__)
+    assert action_max == Action.opponent
+
+def test_simulator_one_bullet(sim_one_bullet: Simulator) -> None:
+    sim_one_bullet.frozen_round.items_player.append(Item.phone)
+    res = sim_one_bullet.start()
+    assert Action.phone not in res

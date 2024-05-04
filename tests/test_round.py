@@ -1,5 +1,5 @@
-from pytest import fixture
 import pytest
+from pytest import fixture
 
 from buckshot_solver.elements import Item, Shell
 from buckshot_solver.round import Round, RoundError
@@ -75,10 +75,17 @@ def eight_round() -> Round:
         max_life=5,
         player_life=4,
         dealer_life=5,
-        items_player=[],
-        items_dealer=[],
     )
 
+@fixture
+def one_bullet() -> Round:
+    return Round(
+        lives=1,
+        blanks=0,
+        max_life=5,
+        player_life=4,
+        dealer_life=5,
+    )
 
 def test_from_round(new_round: Round) -> None:
     c_round = Round.from_round(new_round)
@@ -145,6 +152,10 @@ def test_ac_phone(new_round: Round) -> None:
     assert new_round.player_shells.count(Shell.unknown) == 4
     assert Item.phone not in new_round.items_player
 
+def test_ac_phone_2(one_bullet: Round) -> None:
+    one_bullet.initialize_shells()
+    with pytest.raises(RoundError):
+        one_bullet.ac_phone()
 
 def test_ac_beer(new_round: Round) -> None:
     new_round.initialize_shells()
@@ -182,16 +193,12 @@ def test_ac_medecine_2(new_round: Round) -> None:
 def test_ac_adrenaline(adrenaline_round: Round) -> None:
     adrenaline_round.player_turn = False
     adrenaline_round.ac_adrenaline()
-    assert Item.saw not in adrenaline_round.items_player
-    assert Item.adrenaline not in adrenaline_round.items_dealer
-    assert Item.saw in adrenaline_round.items_dealer
+    assert adrenaline_round.adrenaline
 
 
 def test_ac_adrenaline2(adrenaline_round2: Round) -> None:
     adrenaline_round2.ac_adrenaline()
-    assert Item.saw not in adrenaline_round2.items_dealer
-    assert Item.adrenaline not in adrenaline_round2.items_player
-    assert Item.saw in adrenaline_round2.items_player
+    assert adrenaline_round2.adrenaline
 
 
 def test_ac_shoot_self(new_round: Round) -> None:
@@ -304,6 +311,7 @@ def test_initialize_shells(eight_round: Round) -> None:
     check3 = all((shell == Shell.live for shell in eight_round.shells[0:4]))
     assert not check1 or not check2 or not check3
 
+
 def test_ac_inverter(new_round: Round) -> None:
     new_round.shells[-1] = Shell.live
     new_round.items_player.append(Item.inverter)
@@ -312,8 +320,8 @@ def test_ac_inverter(new_round: Round) -> None:
     assert new_round.inverted
     new_round.ac_inverter()
     assert not new_round.inverted
-    
+
+
 def test_using_object_not_available(new_round: Round) -> None:
     with pytest.raises(RoundError):
         new_round.ac_inverter()
-    

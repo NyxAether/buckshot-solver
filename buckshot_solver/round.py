@@ -6,17 +6,33 @@ from pydantic import BaseModel, field_serializer, model_validator
 
 from buckshot_solver.elements import Action, Item, Shell
 
+
 class RoundError(Exception):
     pass
+
 
 def check_item(item: Item) -> Callable:
     def wrapper_up(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(self: "Round", *args: Any, **kwargs: Any) -> Any:
             if self.player_turn:
+                if self.adrenaline:
+                    if item in self.items_dealer:
+                        self.items_dealer.remove(item)
+                        self.items_player.append(item)
+                        self.adrenaline = False
+                    else:
+                        RoundError(f"{item} was not in items'dealer")
                 if item in self.items_player:
                     return func(self, *args, **kwargs)
             else:
+                if self.adrenaline:
+                    if item in self.items_player:
+                        self.items_player.remove(item)
+                        self.items_dealer.append(item)
+                        self.adrenaline = False
+                    else:
+                        RoundError(f"{item} was not in items'player")
                 if item in self.items_dealer:
                     return func(self, *args, **kwargs)
             raise RoundError(f"Item {item.name} not available")
@@ -36,6 +52,7 @@ class Round(BaseModel):
     player_handcuff: bool = False
     dealer_handcuff: bool = False
     inverted: bool = False
+    adrenaline: bool = False
     saw_bonus: int = 1
     items_player: list[Item] = []
     items_dealer: list[Item] = []
@@ -143,6 +160,7 @@ class Round(BaseModel):
         del self.shells[-1]
         del self.player_shells[-1]
         del self.dealer_shells[-1]
+        self.inverted = False
         self.update_both_knowledge()
         return last_shell
 
@@ -254,20 +272,9 @@ class Round(BaseModel):
     @check_item(item=Item.adrenaline)
     def ac_adrenaline(self) -> float:
         if self._check_adrenaline():
-            proba = 1.0
-            if self.player_turn:
-                items_no_ad = {i for i in self.items_dealer if i != Item.adrenaline}
-                item = random.choice(list(items_no_ad))
-                self.items_player.append(item)
-                self.items_dealer.remove(item)
-            else:
-                items_no_ad = {i for i in self.items_player if i != Item.adrenaline}
-                item = random.choice(list(items_no_ad))
-                proba = proba * 1 / len(items_no_ad)
-                self.items_dealer.append(item)
-                self.items_player.remove(item)
+            self.adrenaline = True
             self._remove_played_item(Item.adrenaline)
-            return proba
+            return 1.0
         return 0.0
 
     def ac_shoot_opposite(self) -> float:
@@ -311,13 +318,34 @@ class Round(BaseModel):
                 self.player_turn = True
 
     @property
-    def possible_actions(self) -> set[int]:
-        possible_shots = {Action.opponent.value, Action.myself.value}
-        if self.player_turn:
-            return {i.value for i in self.items_player}.union(possible_shots)
-        return {i.value for i in self.items_dealer}.union(possible_shots)
+    def possible_actions(self) -> set[Action]:
+        possible_shots = {Action.opponent, Action.myself}
+        items_self = self.items_player
+        items_opp = self.items_dealer
+        handcuff_self = self.player_handcuff
+        handcuff_opp = self.dealer_handcuff
+        if not self.player_turn:
+            items_self, items_opp = items_opp, items_self
+            handcuff_self, handcuff_opp = handcuff_opp, handcuff_self
+        actions_self = {Action.from_item(i) for i in items_self}
+        actions_opp = {Action.from_item(i) for i in items_opp}
+        actions_opp = actions_opp - {Action.adrenaline}
+        if self.saw_bonus == 2:
+            actions_self = actions_self - {Action.saw}
+            actions_opp = actions_opp - {Action.saw}
+        if handcuff_opp:
+            actions_self = actions_self - {Action.handcuff}
+            actions_opp = actions_opp - {Action.handcuff}
+        if len(self.shells)<2:
+            actions_self = actions_self - {Action.phone}
+        if len(actions_opp) == 0:
+            actions_self = actions_self - {Action.adrenaline}
 
-    def action(self, action: Action) -> float:
+        if self.adrenaline:
+            return actions_opp
+        return actions_self.union(possible_shots)
+
+    def action(self, action: Action | int) -> float:
         match action:
             case Action.handcuff:
                 return self.ac_handcuff()
