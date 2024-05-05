@@ -1,4 +1,8 @@
 from enum import IntEnum
+from functools import total_ordering
+from typing import Iterable
+
+from pydantic import BaseModel
 
 
 class ShotType(IntEnum):
@@ -51,3 +55,57 @@ class Action(IntEnum):
 
     def __str__(self) -> str:
         return f"{self.name}"
+
+
+@total_ordering
+class RouletteResult(BaseModel):
+    player_life: int | float
+    dealer_life: int | float
+
+    @property
+    def score(self) -> float:
+        return self.player_life * 0.75 + self.dealer_life * -1.0
+
+    def __radd__(self, other: "RouletteResult", /) -> "RouletteResult":
+        if isinstance(other, int):
+            if other == 0:
+                return self
+            else:
+                raise NotImplementedError
+        if not isinstance(other, RouletteResult):
+            raise NotImplementedError
+        return RouletteResult(
+            player_life=self.player_life + other.player_life,
+            dealer_life=self.dealer_life + other.dealer_life,
+        )
+
+    def __add__(self, other: "RouletteResult", /) -> "RouletteResult":
+        return self.__radd__(other)
+
+    def __truediv__(self, other: int | float) -> "RouletteResult":
+        if not isinstance(other, int) and not isinstance(other, float):
+            raise NotImplementedError
+        return RouletteResult(
+            player_life=self.player_life / other,
+            dealer_life=self.dealer_life / other,
+        )
+
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, RouletteResult):
+            raise NotImplementedError
+        return (
+            self.player_life == value.player_life
+            and self.dealer_life == value.dealer_life
+        ) or self.score == value.score
+
+    def __lt__(self, value: object) -> bool:
+        if not isinstance(value, RouletteResult):
+            raise NotImplementedError
+        return self.score < value.score
+
+
+def sum_res(results: Iterable[RouletteResult]) -> RouletteResult:
+    res = RouletteResult(player_life=0, dealer_life=0)
+    for r in results:
+        res += r
+    return res

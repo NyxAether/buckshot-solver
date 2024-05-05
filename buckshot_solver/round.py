@@ -113,6 +113,9 @@ class Round(BaseModel):
             values["dealer_shells"] = el.dealer_shells.copy()
         return Round(**values)
 
+    def copy_round(self) -> "Round":
+        return Round.from_round(self)
+
     @property
     def check_health(self) -> bool:
         if self.player_life < 0:
@@ -138,13 +141,13 @@ class Round(BaseModel):
             return True
         return False
 
-    def _remove_played_item(self, item: Item) -> None:
+    def remove_played_item(self, item: Item) -> None:
         if self.player_turn:
             self.items_player.remove(item)
         else:
             self.items_dealer.remove(item)
 
-    def _remove_last_shell(self) -> Shell:
+    def remove_last_shell(self) -> Shell:
         last_shell = self.shells[-1]
         if self.inverted:
             if last_shell == Shell.live:
@@ -182,141 +185,6 @@ class Round(BaseModel):
         self._update_knowledge(self.player_shells)
         self._update_knowledge(self.dealer_shells)
 
-    @check_item(item=Item.handcuff)
-    def ac_handcuff(self) -> float:
-        if self.player_turn and not self.dealer_handcuff:
-            self.dealer_handcuff = True
-            self._remove_played_item(Item.handcuff)
-            return 1.0
-        if not self.player_turn and not self.player_handcuff:
-            self.player_handcuff = True
-            self._remove_played_item(Item.handcuff)
-            return 1.0
-        return 0.0
-
-    @check_item(item=Item.magnifier)
-    def ac_magnifier(self) -> float:
-        proba = 1.0
-        if self.player_turn:
-            self.player_shells[-1] = self.shells[-1]
-        else:
-            self.dealer_shells[-1] = self.shells[-1]
-        self.update_both_knowledge()
-        self._remove_played_item(Item.magnifier)
-        return proba
-
-    @check_item(item=Item.saw)
-    def ac_saw(self) -> float:
-        if self.saw_bonus == 1:
-            self.saw_bonus = 2
-            self._remove_played_item(Item.saw)
-            return 1.0
-        return 0.0
-
-    @check_item(item=Item.phone)
-    def ac_phone(self) -> float:
-        if len(self.shells) > 1:
-            id_shell = random.randint(0, len(self.shells) - 1)
-            proba = 1 / (len(self.shells) - 1)
-            if self.player_turn:
-                self.player_shells[id_shell] = self.shells[id_shell]
-            else:
-                self.dealer_shells[id_shell] = self.shells[id_shell]
-            self.update_both_knowledge()
-            self._remove_played_item(Item.phone)
-            return proba
-        return 0.0
-
-    @check_item(item=Item.beer)
-    def ac_beer(self) -> float:
-        proba = 1.0
-        last_shell = self._remove_last_shell()
-        if last_shell == Shell.live:
-            self.lives -= 1
-        elif last_shell == Shell.blank:
-            self.blanks -= 1
-        self._remove_played_item(Item.beer)
-        return proba
-
-    @check_item(item=Item.cigarette)
-    def ac_cigarette(self) -> float:
-        if self.player_turn and self.player_life < self.max_life:
-            self.player_life += 1
-        if not self.player_turn and self.dealer_life < self.max_life:
-            self.dealer_life += 1
-        self._remove_played_item(Item.cigarette)
-        return 1.0
-
-    @check_item(item=Item.medecine)
-    def ac_medecine(self) -> float:
-        heal = random.randint(0, 1)
-        if heal == 0:
-            if self.player_turn:
-                self.player_life -= 1
-            else:
-                self.dealer_life -= 1
-        else:
-            if self.player_turn and self.player_life < self.max_life:
-                self.player_life += 1
-            if not self.player_turn and self.dealer_life < self.max_life:
-                self.dealer_life += 1
-        self._remove_played_item(Item.medecine)
-        return 0.5
-
-    @check_item(item=Item.inverter)
-    def ac_inverter(self) -> float:
-        self.inverted = not self.inverted
-        self._remove_played_item(Item.inverter)
-        return 1.0
-
-    @check_item(item=Item.adrenaline)
-    def ac_adrenaline(self) -> float:
-        if self._check_adrenaline():
-            self.adrenaline = True
-            self._remove_played_item(Item.adrenaline)
-            return 1.0
-        return 0.0
-
-    def ac_shoot_opposite(self) -> float:
-        last_shell = self._remove_last_shell()
-        if last_shell == Shell.live:
-            if self.player_turn:
-                self.dealer_life -= 1 * self.saw_bonus
-            else:
-                self.player_life -= 1 * self.saw_bonus
-            self.lives -= 1
-        else:
-            self.blanks -= 1
-        self.saw_bonus = 1
-        self.change_turn()
-        return 1.0
-
-    def ac_shoot_myself(self) -> float:
-        last_shell = self._remove_last_shell()
-        if last_shell == Shell.live:
-            if self.player_turn:
-                self.player_life -= 1 * self.saw_bonus
-            else:
-                self.dealer_life -= 1 * self.saw_bonus
-            self.lives -= 1
-            self.change_turn()
-        else:
-            self.blanks -= 1
-        self.saw_bonus = 1
-        return 1.0
-
-    def change_turn(self) -> None:
-        if self.player_turn:
-            if self.dealer_handcuff:
-                self.dealer_handcuff = False
-            else:
-                self.player_turn = False
-        else:
-            if self.player_handcuff:
-                self.player_handcuff = False
-            else:
-                self.player_turn = True
-
     @property
     def possible_actions(self) -> set[Action]:
         possible_shots = {Action.opponent, Action.myself}
@@ -336,7 +204,7 @@ class Round(BaseModel):
         if handcuff_opp:
             actions_self = actions_self - {Action.handcuff}
             actions_opp = actions_opp - {Action.handcuff}
-        if len(self.shells)<2:
+        if len(self.shells) < 2:
             actions_self = actions_self - {Action.phone}
         if len(actions_opp) == 0:
             actions_self = actions_self - {Action.adrenaline}
@@ -344,32 +212,6 @@ class Round(BaseModel):
         if self.adrenaline:
             return actions_opp
         return actions_self.union(possible_shots)
-
-    def action(self, action: Action | int) -> float:
-        match action:
-            case Action.handcuff:
-                return self.ac_handcuff()
-            case Action.magnifier:
-                return self.ac_magnifier()
-            case Action.saw:
-                return self.ac_saw()
-            case Action.phone:
-                return self.ac_phone()
-            case Action.beer:
-                return self.ac_beer()
-            case Action.cigarette:
-                return self.ac_cigarette()
-            case Action.medecine:
-                return self.ac_medecine()
-            case Action.inverter:
-                return self.ac_inverter()
-            case Action.adrenaline:
-                return self.ac_adrenaline()
-            case Action.opponent:
-                return self.ac_shoot_opposite()
-            case Action.myself:
-                return self.ac_shoot_myself()
-        return 0.0
 
     def initialize_shells(self) -> None:
         remaining_lives = self.lives - self.player_shells.count(Shell.live)
@@ -383,3 +225,15 @@ class Round(BaseModel):
                     remaining_lives -= 1
                 else:
                     remaining_blanks -= 1
+
+    def change_turn(self) -> None:
+        if self.player_turn:
+            if self.dealer_handcuff:
+                self.dealer_handcuff = False
+            else:
+                self.player_turn = False
+        else:
+            if self.player_handcuff:
+                self.player_handcuff = False
+            else:
+                self.player_turn = True

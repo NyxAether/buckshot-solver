@@ -77,6 +77,7 @@ def eight_round() -> Round:
         dealer_life=5,
     )
 
+
 @fixture
 def one_bullet() -> Round:
     return Round(
@@ -86,6 +87,7 @@ def one_bullet() -> Round:
         player_life=4,
         dealer_life=5,
     )
+
 
 def test_from_round(new_round: Round) -> None:
     c_round = Round.from_round(new_round)
@@ -152,10 +154,12 @@ def test_ac_phone(new_round: Round) -> None:
     assert new_round.player_shells.count(Shell.unknown) == 4
     assert Item.phone not in new_round.items_player
 
+
 def test_ac_phone_2(one_bullet: Round) -> None:
     one_bullet.initialize_shells()
     with pytest.raises(RoundError):
         one_bullet.ac_phone()
+
 
 def test_ac_beer(new_round: Round) -> None:
     new_round.initialize_shells()

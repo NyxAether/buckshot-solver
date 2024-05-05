@@ -84,6 +84,7 @@ def sim6() -> Simulator:
         )
     )
 
+
 @fixture
 def sim_one_bullet() -> Simulator:
     return Simulator(
@@ -263,6 +264,7 @@ def test_simulator_complex_2() -> None:
     res = Simulator(cr).start()
     action_max = max(res, key=res.__getitem__)
     assert action_max == Action.opponent
+
 
 def test_simulator_one_bullet(sim_one_bullet: Simulator) -> None:
     sim_one_bullet.frozen_round.items_player.append(Item.phone)
