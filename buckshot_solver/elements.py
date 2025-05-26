@@ -59,28 +59,20 @@ class Action(IntEnum):
 
 @total_ordering
 class RouletteResult(BaseModel):
-    player_life: int | float
-    dealer_life: int | float
+    player_life: int | float = 0
+    dealer_life: int | float = 0
 
     @property
     def score(self) -> float:
         return self.player_life * 0.75 + self.dealer_life * -1.0
 
-    def __radd__(self, other: "RouletteResult", /) -> "RouletteResult":
-        if isinstance(other, int):
-            if other == 0:
-                return self
-            else:
-                raise NotImplementedError
+    def __add__(self, other: "RouletteResult") -> "RouletteResult":
         if not isinstance(other, RouletteResult):
             raise NotImplementedError
         return RouletteResult(
             player_life=self.player_life + other.player_life,
             dealer_life=self.dealer_life + other.dealer_life,
         )
-
-    def __add__(self, other: "RouletteResult", /) -> "RouletteResult":
-        return self.__radd__(other)
 
     def __truediv__(self, other: int | float) -> "RouletteResult":
         if not isinstance(other, int) and not isinstance(other, float):

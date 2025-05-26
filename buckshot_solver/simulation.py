@@ -1,7 +1,12 @@
+import importlib
+
 from buckshot_solver.elements import RouletteResult
-from buckshot_solver.logics.dealerlogic import DealerLogic
-from buckshot_solver.logics.playerlogic import PlayerLogic
+# from buckshot_solver.logics.dealerlogic import DealerLogic
+# from buckshot_solver.logics.playerlogic import PlayerLogic
 from buckshot_solver.round import Round
+
+playerlogic = importlib.import_module("buckshot_solver.logics.playerlogic")
+dealerlogic = importlib.import_module("buckshot_solver.logics.dealerlogic")
 
 
 class SimulationError(Exception):
@@ -11,8 +16,8 @@ class SimulationError(Exception):
 class Simulation:
     def __init__(self, current_round: Round):
         self.cr = current_round
-        self.dealer = DealerLogic()
-        self.player = PlayerLogic()
+        self.dealer = dealerlogic.DealerLogic()
+        self.player = playerlogic.PlayerLogic()
 
     def launch(self) -> RouletteResult:
         if self.cr.check_health and self.cr.bullets:

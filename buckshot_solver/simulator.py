@@ -1,8 +1,8 @@
-from collections import defaultdict
 from itertools import combinations
 from typing import Generator
 
-from buckshot_solver.elements import Action, Shell
+from buckshot_solver.elements import Action, RouletteResult, Shell
+from buckshot_solver.logics.playerlogic import PlayerLogic
 from buckshot_solver.round import Round
 
 
@@ -25,8 +25,22 @@ class Simulator:
                 shells[id_shell] = Shell.live
             yield shells
 
-    def start(self) -> defaultdict[Action, float]:
-        for shells in self._generate_all_outcomes():
+    def _update_dict(
+        self,
+        results: dict[Action, RouletteResult],
+        new_dict: dict[Action, RouletteResult],
+    ) -> None:
+        for key, value in new_dict.items():
+            results[key] += value
+
+    def start(self) -> dict[Action, RouletteResult]:
+        player = PlayerLogic()
+        results: dict[Action, RouletteResult] = {}
+        for i, shells in enumerate(self._generate_all_outcomes()):
             cr = self.frozen_round.copy_round()
             cr.shells = shells
-        return defaultdict(float)
+            self._update_dict(results, player.first_choose_actions(cr))
+        i += 1
+        for k in results:
+            results[k] /= i
+        return results
